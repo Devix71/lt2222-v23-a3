@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, Dataset
 import argparse
 import numpy as np
 import pandas as pd
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, precision_score, recall_score
 import matplotlib.pyplot as plt
 
 
@@ -111,86 +111,91 @@ if __name__ == '__main__':
                             batch_size=4,
                             shuffle=True,
                             collate_fn=lambda x: x)
-    model = Model(dimensions=len(df_train.columns)-1,num_hidden_layers=2, hidden_size=10, nonlinearity_func=nn.Tanh)
+    precision = []
+    recall = []
 
-    # optimizer defines the method how the model is trained
-    optimizer = optim.Adam(model.parameters(), lr=0.003)
 
-    # the loss function calculates the 'difference' between the models output and the ground truth
-    loss_function = nn.CrossEntropyLoss()
+    for z in range(1,5):
+        model = Model(dimensions=len(df_train.columns)-1,num_hidden_layers=z, hidden_size=10, nonlinearity_func=nn.Tanh)
 
-    # number of epochs = how often the model sees the complete dataset
-    for epoch in range(5):
-        total_loss = 0
+        # optimizer defines the method how the model is trained
+        optimizer = optim.Adam(model.parameters(), lr=0.003)
 
-        # loop through batches of the dataloader
-        for i, batch in enumerate(dataloader):
+        # the loss function calculates the 'difference' between the models output and the ground truth
+        loss_function = nn.CrossEntropyLoss()
 
-            # turning the list of complete samples into a list of inputs and a list of ground_truths
-            # converting both lists into a tensor (matrix), to be used by PyTorch
-            model_input = torch.Tensor([sample[0] for sample in batch])
-            ground_truth = torch.clamp(torch.Tensor([sample[1] for sample in batch]), min=1, max=2)  
+        # number of epochs = how often the model sees the complete dataset
+        for epoch in range(5):
+            total_loss = 0
 
-            # sending the batch of sentences to the forward function of the model
+            # loop through batches of the dataloader
+            for i, batch in enumerate(dataloader):
+
+                # turning the list of complete samples into a list of inputs and a list of ground_truths
+                # converting both lists into a tensor (matrix), to be used by PyTorch
+                model_input = torch.Tensor([sample[0] for sample in batch])
+                ground_truth = torch.clamp(torch.Tensor([sample[1] for sample in batch]), min=1, max=2)  
+
+                # sending the batch of sentences to the forward function of the model
+                output = model(model_input)
+
+                # comparing the output of the model to the ground truth and calculating the loss
+                # the lower the loss, the closer the model's output is to the ground truth
+                loss = loss_function(output, ground_truth.long())
+
+                # printing average loss for the epoch
+                total_loss += loss.item()
+                print(f'epoch {epoch},', f'batch {i}:', round(total_loss / (i + 1), 4), end='\r')
+
+                # training the model based on the loss:
+
+                # computing gradients
+                loss.backward()
+                # updating parameters
+                optimizer.step()
+                # reseting gradients
+                optimizer.zero_grad()
+            print()
+        
+        # Creating the testing data
+        y_test = df_test.iloc[:, -1].values.flatten()
+        X_test = df_test.iloc[:, :(len(df_train.columns)-1)].values
+
+        sample_list_test = []
+        for i in range(len(y_test)):
+            sample_list_test.append((list(X_test[i]), y_test[i]))
+
+        dataset_test = MyDataset(samples = sample_list_test)
+
+        # creating a new DataLoader for the test dataset
+        test_dataloader = DataLoader(dataset_test,
+                                    batch_size=4,
+                                    shuffle=False,
+                                    collate_fn=lambda x: x)
+        
+        # predicting labels for the test set
+        model.eval()
+        with torch.no_grad():
+            model_input = torch.Tensor(X_test)
             output = model(model_input)
+            y_pred = torch.argmax(output, dim=1).numpy()
 
-            # comparing the output of the model to the ground truth and calculating the loss
-            # the lower the loss, the closer the model's output is to the ground truth
-            loss = loss_function(output, ground_truth.long())
+        
 
-            # printing average loss for the epoch
-            total_loss += loss.item()
-            print(f'epoch {epoch},', f'batch {i}:', round(total_loss / (i + 1), 4), end='\r')
+        # appending the precision and recall scores to the arrays
+        precision.append(precision_score(y_test,y_pred, zero_division = 1) )
+        recall.append( recall_score(y_test,y_pred, zero_division = 1))
 
-            # training the model based on the loss:
 
-            # computing gradients
-            loss.backward()
-            # updating parameters
-            optimizer.step()
-            # reseting gradients
-            optimizer.zero_grad()
-        print()
-    
-    # Creating the testing data
-    y_test = df_test.iloc[:, -1].values.flatten()
-    X_test = df_test.iloc[:, :(len(df_train.columns)-1)].values
+    # plot precision vs. recall for each layer
+    for i in range(len(precision)):
+        plt.plot(recall[i], precision[i], label=f'Curve of Layer {i}')
 
-    sample_list_test = []
-    for i in range(len(y_test)):
-        sample_list_test.append((list(X_test[i]), y_test[i]))
+    # set axis labels and plot title
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title('Precision-Recall Curve')
 
-    dataset_test = MyDataset(samples = sample_list_test)
-
-    # creating a new DataLoader for the test dataset
-    test_dataloader = DataLoader(dataset_test,
-                                batch_size=4,
-                                shuffle=False,
-                                collate_fn=lambda x: x)
-    
-    # predicting labels for the test set
-    model.eval()
-    with torch.no_grad():
-        model_input = torch.Tensor(X_test)
-        output = model(model_input)
-        y_pred = torch.argmax(output, dim=1).numpy()
-
-    # computing the confusion matrix
-    labels = [1,2]
-    cm = confusion_matrix(y_test, y_pred,labels = [1,2])
-    
-
-    # plotting the confusion matrix
-    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
-    plt.colorbar()
-    plt.title('Confusion Matrix')
-    plt.xlabel('Predicted Label')
-    plt.ylabel('True Label')
-    plt.xticks(np.arange(len(labels)), labels, rotation=45)
-    plt.yticks(np.arange(len(labels)), labels)
-    plt.tight_layout()
-    plt.show()
-
-    # printing the confusion matrix
-    print(cm)
-
+    # show the legend and plot
+    plt.legend()
+    plt.savefig('precision_recall_curve.png')
