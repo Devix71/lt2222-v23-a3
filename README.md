@@ -30,9 +30,11 @@ Afterwards, the authors' names are encoded by the following logic: the chosen au
 <br>The logic of the script works like this:</br>
 
 <p>-The dataset is read from the .csv file and split into training and testing datasets based on their *type* tag, which is then dropped.
--Subsequently, the X and Y training data are split off dinamically according to the file's number of columns, following the rule
+
+Subsequently, the X and Y training data are split off dinamically according to the file's number of columns, following the rule
 that there is a single "authors" column for the labels and that the rest of the columns are the emails' content dimensions.
--After being sepparated, the 2 arrays are then processed by extracting their values and in the case of the Y array, flattening it.</p>
+
+After being sepparated, the 2 arrays are then processed by extracting their values and in the case of the Y array, flattening it.</p>
 
 <p>Aftewards the 2 arrays are then merged together into a list of tuples of the shape (feature vector,label) in order to be assigned to a MyDataset object and loaded into a *dataloader* object to help with batching and feeding the data into the neural network.</p>
 
