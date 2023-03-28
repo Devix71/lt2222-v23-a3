@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, Dataset
 import argparse
 import numpy as np
 import pandas as pd
-from sklearn.metrics import confusion_matrix, precision_score, recall_score
+from sklearn.metrics import precision_score, recall_score
 import matplotlib.pyplot as plt
 
 
@@ -31,7 +31,7 @@ class MyDataset(Dataset):
 # defining the model class for the neural network model
 class Model(nn.Module):
     # adding options to the model for hidden layer, choice of two non-linearities and size of the hidden layer  
-    def __init__(self, dimensions, num_hidden_layers=1, hidden_size=5, nonlinearity_func=nn.ReLU) -> None:
+    def __init__(self, dimensions, num_hidden_layers=1, hidden_size=5, nonlinearity_func=None) -> None:
         """ is called when model is created: e.g model = Model()
             - definition of layers
         """
@@ -44,7 +44,7 @@ class Model(nn.Module):
         self.hidden_layers = nn.ModuleList([
             nn.Sequential(
                 nn.Linear(hidden_size, hidden_size),
-                nonlinearity_func()
+                nonlinearity_func() if nonlinearity_func is not None else nn.Identity()
             ) for _ in range(num_hidden_layers)
         ])
         self.output = nn.Linear(hidden_size, 3)
@@ -114,9 +114,18 @@ if __name__ == '__main__':
     precision = []
     recall = []
 
+    if args.nonlinearity_func == "Tanh":
+        nonlinfunc = nn.Tanh
+    elif args.nonlinearity_func == "ReLU":
+        nonlinfunc = nn.ReLU
+    elif args.nonlinearity_func == "None":
+        nonlinfunc = None
+    else:
+        print("Please input a valid non-linearity function name")
+        quit()
 
-    for z in range(1,5):
-        model = Model(dimensions=len(df_train.columns)-1,num_hidden_layers=z, hidden_size=10, nonlinearity_func=nn.Tanh)
+    for layer in range(1,int(args.num_hidden_layers)+1):
+        model = Model(dimensions=len(df_train.columns)-1,num_hidden_layers=layer, hidden_size=args.hidden_size, nonlinearity_func=nonlinfunc)
 
         # optimizer defines the method how the model is trained
         optimizer = optim.Adam(model.parameters(), lr=0.003)
@@ -189,7 +198,7 @@ if __name__ == '__main__':
 
     # plot precision vs. recall for each layer
     for i in range(len(precision)):
-        plt.plot(recall[i], precision[i], label=f'Curve of Layer {i}')
+        plt.scatter(recall[i], precision[i], label=f'P vs. R of Layer {i+1}')
 
     # set axis labels and plot title
     plt.xlabel('Recall')
@@ -199,3 +208,4 @@ if __name__ == '__main__':
     # show the legend and plot
     plt.legend()
     plt.savefig('precision_recall_curve.png')
+
