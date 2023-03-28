@@ -127,7 +127,7 @@ if __name__ == '__main__':
     for layer in range(1,int(args.num_hidden_layers)+1):
         model = Model(dimensions=len(df_train.columns)-1,num_hidden_layers=layer, hidden_size=args.hidden_size, nonlinearity_func=nonlinfunc)
 
-        # optimizer defines the method how the model is trained
+        # optimizer defines parameters of how the model is trained
         optimizer = optim.Adam(model.parameters(), lr=0.003)
 
         # the loss function calculates the 'difference' between the models output and the ground truth
